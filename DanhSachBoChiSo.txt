@@ -1,0 +1,11 @@
+Sales Growth Rate
+EPS Growth Rate
+BVPS Growth Rates
+Tăng trưởng OPC LCDTKD
+Nợ dài hạn năm gần nhất
+Effectiveness(Doanh thu/Tài sản)
+Effciency(Lợi nhuận/Doanh thu)
+Productivity(OPC LCDTKD/Lợi nhuận)
+ROA
+ROE
+ROIC
