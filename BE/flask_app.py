@@ -281,6 +281,10 @@ def canslim(_STOCK):
     return (C + A) * 100
 
 
+def getStockName(_STOCK):
+    stock_data = pd.read_excel("../stock_data/stock_info.xlsx")
+    return stock_data[stock_data["StockID"] == _STOCK].StockName.values[0]
+
 @app.route("/info_4m", methods=["POST"])
 def cal4M():
     data = request.get_json()
@@ -299,6 +303,14 @@ def calCanslim():
         abort(400)
     return jsonify({"4m": canslim(symbol)})
 
+@app.route("/info_stockname", methods=["GET"])
+def stockName():
+    data = request.get_json()
+    print(data)
+    symbol = data.get("symbol")
+    if symbol is None:
+        abort(400)
+    return jsonify({"StockName": getStockName(symbol)})
 
 if __name__ == "__main__":
     app.run(debug=True)
