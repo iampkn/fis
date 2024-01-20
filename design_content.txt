@@ -1,0 +1,8 @@
+1. Xem thông tin cổ phiếu theo mã
+2. Xem đánh giá cổ phiếu theo phương pháp 4M, Canslim
+3. Xem thông tin ngành
+3.1. Xem các mã tăng mạnh/ giảm mạnh
+3.2. Xem các mã ngành có dòng tiền nước ngoài mạnh
+3.3. Xem các mã CP nổi bật
+4. Xem thông tin KQKD theo mã
+5. Xem thông tin CDTC theo mã 

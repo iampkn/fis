@@ -68,12 +68,8 @@ def calculate_point_item(chiso, tham_chieu):
         return 0
     return sum_val
 
-
-def calculate4M(_STOCK):
-    api_url = f"https://fwtapi2.fialda.com/api/services/app/TechnicalAnalysis/GetFinancialHighlights?symbol={_STOCK}"
-
+def handle_map_response_to_df(api_url, headers):
     response = requests.get(api_url, headers=headers)
-
     # Kiểm tra xem có lỗi không (status code 200 là thành công)
     if response.status_code == 200:
         # In nội dung phản hồi
@@ -86,6 +82,12 @@ def calculate4M(_STOCK):
     df_api = pd.DataFrame()
     for i in range(response_lenght):
         df_api = pd.concat([df_api, pd.DataFrame([response[i]])])
+    return df_api, response
+
+def calculate4M(_STOCK):
+    api_url = f"https://fwtapi2.fialda.com/api/services/app/TechnicalAnalysis/GetFinancialHighlights?symbol={_STOCK}"
+
+    df_api, response = handle_map_response_to_df(api_url, headers)
 
     df_api = df_api[df_api["quarter"] != 5]
     df_api = df_api[::-1]
@@ -215,19 +217,7 @@ def calculate4M(_STOCK):
 def canslim(_STOCK):
     api_url = f"https://fwtapi2.fialda.com/api/services/app/TechnicalAnalysis/GetFinancialHighlights?symbol={_STOCK}"
 
-    response = requests.get(api_url,headers=headers)
-
-    # Kiểm tra xem có lỗi không (status code 200 là thành công)
-    if response.status_code == 200:
-        # In nội dung phản hồi
-        response = response.json()["result"]
-    else:
-        # In lỗi nếu có
-        print(f"Lỗi {response.status_code}: {response.text}")
-    response_lenght = len(response)
-    df_api = pd.DataFrame()
-    for i in range(response_lenght):
-        df_api = pd.concat([df_api, pd.DataFrame([response[i]])])
+    df_api, response = handle_map_response_to_df(api_url, headers)
 
     df_api = df_api[df_api["quarter"] != 5]
     df_api = df_api[::-1]
@@ -285,6 +275,58 @@ def getStockName(_STOCK):
     stock_data = pd.read_excel("../stock_data/stock_info.xlsx")
     return stock_data[stock_data["StockID"] == _STOCK].StockName.values[0]
 
+
+def getStockPrice(_STOCK):
+    api_url = f"https://fwtapi1.fialda.com/api/services/app/StockInfo/GetTradingChartData?symbol={_STOCK}&interval=1d&toTime=2024-01-07T15:00:00.000"
+    response = requests.get(api_url,headers=headers)
+    if response.status_code == 200: response = response.json()["result"]
+    else: print(f"Lỗi {response.status_code}: {response.text}")
+    return response[0]
+
+def getKQKD(_STOCK, isQuarterReport):
+    api_url = f"https://fwtapi1.fialda.com/api/services/app/StockInfo/GetFS_IncomeStatement_General?symbol={_STOCK}&isQuarterReport={isQuarterReport}"
+
+    df_api, response = handle_map_response_to_df(api_url, headers)
+
+    mapping = [{"Code": "ISA1","Name": "Tổng doanh thu hoạt động kinh doanh"},{"Code": "ISA2","Name": "Các khoản giảm trừ doanh thu"},{"Code": "ISA3","Name": "Doanh thu thuần"},{"Code": "ISA4","Name": "Giá vốn hàng bán"},{"Code": "ISA5","Name": "Lợi nhuận gộp"},{"Code": "ISA6","Name": "Doanh thu hoạt động tài chính"},{"Code": "ISA7","Name": "Chi phí tài chính"},{"Code": "ISA8","Name": "Trong đó: Chi phí lãi vay"},{"Code": "ISA102","Name": "Lợi nhuận hoặc lỗ trong công ty liên kết"},{"Code": "ISA9","Name": "Chi phí bán hàng"},{"Code": "ISA10","Name": "Chi phí quản lý doanh nghiệp"},{"Code": "ISA11","Name": "Lợi nhuận thuần từ hoạt động kinh doanh"},{"Code": "ISA12","Name": "Thu nhập khác"},{"Code": "ISA13","Name": "Chi phí khác"},{"Code": "ISA14","Name": "Lợi nhuận khác"},{"Code": "ISA16","Name": "Tổng lợi nhuận kế toán trước thuế"},{"Code": "ISA19","Name": "Chi phí thuế TNDN"},{"Code": "ISA17","Name": "Chi phí thuế TNDN hiện hành"},{"Code": "ISA18","Name": "Chi phí thuế TNDN hoãn lại"},{"Code": "ISA20","Name": "Lợi nhuận sau thuế thu nhập doanh nghiệp"},{"Code": "ISA21","Name": "Lợi ích của cổ đông thiểu số"},{"Code": "ISA22","Name": "Lợi nhuận sau thuế của Công ty mẹ"},{"Code": "ISAV1","Name": "Lãi cơ bản trên cổ phiếu"},{"Code": "ISAV2","Name": "Lãi suy giảm trên cổ phiếu"}]
+    df_api.columns = df_api.columns.str.upper()
+
+    for i in range(len(mapping)):
+        df_api.rename(columns={mapping[i]["Code"]: mapping[i]["Name"]},inplace=True)
+    return df_api[0].to_json()
+
+def getCDKT(_STOCK, isQuarterReport):
+    api_url = f"https://fwtapi1.fialda.com/api/services/app/StockInfo/GetFS_BalanceSheet_General?symbol={_STOCK}&isQuarterReport={isQuarterReport}"
+
+    df_api, response = handle_map_response_to_df(api_url, headers)
+
+    mapping = [{"Code": "BSA1","Name": "Tài sản ngắn hạn"},{"Code": "BSA2","Name": "Tiền và các khoản tương đương tiền"},{"Code": "BSA3","Name": "Tiền"},{"Code": "BSA4","Name": "Các khoản tương đương tiền"},{"Code": "BSA5","Name": "Các khoản đầu tư tài chính ngắn hạn"},{"Code": "BSA6","Name": "Đầu tư ngắn hạn"},{"Code": "BSA7","Name": "Dự phòng giảm giá đầu tư ngắn hạn"},{"Code": "BSB108","Name": "Đầu tư giữ đến ngày đáo hạn"},{"Code": "BSA8","Name": "Các khoản phải thu ngắn hạn"},{"Code": "BSA9","Name": "Phải thu khách hàng"},{"Code": "BSA10","Name": "Trả trước cho người bán"},{"Code": "BSA11","Name": "Phải thu nội bộ ngắn hạn"},{"Code": "BSA12","Name": "Phải thu theo tiến độ kế hoạch hợp đồng xây dựng"},{"Code": "BSA159","Name": "Phải thu về cho vay ngắn hạn"},{"Code": "BSA13","Name": "Các khoản phải thu khác"},{"Code": "BSA14","Name": "Dự phòng phải thu ngắn hạn khó đòi"},{"Code": "BSI141","Name": "Tài sản thiếu chờ xử lý"},{"Code": "BSA15","Name": "Hàng tồn kho"},{"Code": "BSA16","Name": "Hàng tồn kho"},{"Code": "BSA17","Name": "Dự phòng giảm giá hàng tồn kho"},{"Code": "BSA18","Name": "Tài sản ngắn hạn khác"},{"Code": "BSA19","Name": "Chi phí trả trước ngắn hạn"},{"Code": "BSA20","Name": "Thuế GTGT được khấu trừ"},{"Code": "BSA21","Name": "Thuế và các khoản khác phải thu Nhà nước"},{"Code": "BSA160","Name": "Giao dịch mua bán lại trái phiếu chính phủ"},{"Code": "BSA22","Name": "Tài sản ngắn hạn khác"},{"Code": "BSA23","Name": "Tài sản dài hạn"},{"Code": "BSA24","Name": "Các khoản phải thu dài hạn"},{"Code": "BSA25","Name": "Phải thu dài hạn của khách hàng"},{"Code": "BSA161","Name": "Trả trước dài hạn người bán"},{"Code": "BSS134","Name": "Vốn kinh doanh ở đơn vị trực thuộc"},{"Code": "BSA26","Name": "Phải thu dài hạn nội bộ"},{"Code": "BSA162","Name": "Phải thu về cho vay dài hạn"},{"Code": "BSA27","Name": "Phải thu dài hạn khác"},{"Code": "BSA28","Name": "Dự phòng phải thu dài hạn khó đòi"},{"Code": "BSA29","Name": "Tài sản cố định"},{"Code": "BSA30","Name": "Tài sản cố định hữu hình"},{"Code": "BSA33","Name": "Tài sản cố định thuê tài chính"},{"Code": "BSA36","Name": "Tài sản cố định vô hình"},{"Code": "BSA40","Name": "Bất động sản đầu tư"},{"Code": "BSA41","Name": "Nguyên giá bất động sản đầu tư"},{"Code": "BSA42","Name": "Hao mòn bất động sản đầu tư"},{"Code": "BSA163","Name": "Tài sản dở dang dài hạn"},{"Code": "BSA164","Name": "Chi phí sản xuất, kinh doanh dở dang dài hạn"},{"Code": "BSA188","Name": "Chi phí xây dựng cơ bản dở dang "},{"Code": "BSA43","Name": "Các khoản đầu tư tài chính dài hạn"},{"Code": "BSA44","Name": "Đầu tư vào công ty con"},{"Code": "BSA45","Name": "Đầu tư vào công ty liên kết, liên doanh"},{"Code": "BSA46","Name": "Đầu tư dài hạn khác"},{"Code": "BSA47","Name": "Dự phòng giảm giá đầu tư tài chính dài hạn"},{"Code": "BSA165","Name": "Đầu tư dài hạn giữ đến ngày đáo hạn"},{"Code": "BSA49","Name": "Tài sản dài hạn khác"},{"Code": "BSA50","Name": "Chi phí trả trước dài hạn"},{"Code": "BSA51","Name": "Tài sản thuế thu nhập hoãn lại"},{"Code": "BSA166","Name": "Thiết bị, vật tư, phụ tùng thay thế dài hạn"},{"Code": "BSA52","Name": "Tài sản dài hạn khác"},{"Code": "BSA209","Name": "Lợi thế thương mại"},{"Code": "BSA53","Name": "TỔNG CỘNG TÀI SẢN"},{"Code": "BSA54","Name": "Nợ phải trả"},{"Code": "BSA55","Name": "Nợ ngắn hạn"},{"Code": "BSA56","Name": "Vay và nợ ngắn hạn"},{"Code": "BSA57","Name": "Phải trả người bán"},{"Code": "BSA58","Name": "Người mua trả tiền trước"},{"Code": "BSA59","Name": "Thuế và các khoản phải nộp Nhà nước"},{"Code": "BSA60","Name": "Phải trả người lao động"},{"Code": "BSA61","Name": "Chi phí phải trả"},{"Code": "BSA62","Name": "Phải trả nội bộ"},{"Code": "BSA63","Name": "Phải trả theo tiến độ kế hoạch hợp đồng xây dựng"},{"Code": "BSA64","Name": "Các khoản phải trả, phải nộp ngắn hạn khác"},{"Code": "BSA66","Name": "Quỹ khen thưởng, phúc lợi"},{"Code": "BSA167","Name": "Doanh thu chưa thực hiện ngắn hạn"},{"Code": "BSA65","Name": "Dự phòng phải trả ngắn hạn"},{"Code": "BSA168","Name": "Quỹ bình ổn giá"},{"Code": "BSA169","Name": "Giao dịch mua bán lại trái phiếu chính phủ"},{"Code": "BSA67","Name": "Nợ dài hạn"},{"Code": "BSA68","Name": "Phải trả dài hạn người bán"},{"Code": "BSA170","Name": "Người mua trả trước dài hạn"},{"Code": "BSA171","Name": "Chi phí phải trả dài hạn"},{"Code": "BSA172","Name": "Phải trả nội bộ về vốn kinh doanh"},{"Code": "BSA69","Name": "Phải trả dài hạn nội bộ"},{"Code": "BSA70","Name": "Phải trả dài hạn khác"},{"Code": "BSA71","Name": "Vay và nợ dài hạn"},{"Code": "BSA173","Name": "Trái phiếu chuyển đổi"},{"Code": "BSA174","Name": "Cổ phiếu ưu đãi"},{"Code": "BSA72","Name": "Thuế thu nhập hoãn lại phải trả"},{"Code": "BSA73","Name": "Dự phòng trợ cấp mất việc làm"},{"Code": "BSA76","Name": "Doanh thu chưa thực hiện dài hạn"},{"Code": "BSA77","Name": "Quỹ phát triển khoa học và công nghệ"},{"Code": "BSA74","Name": "Dự phòng phải trả dài hạn"},{"Code": "BSA78","Name": "Vốn chủ sở hữu"},{"Code": "BSA79","Name": "Vốn và các quỹ"},{"Code": "BSA80","Name": "Vốn góp"},{"Code": "BSA81","Name": "Thặng dư vốn cổ phần"},{"Code": "BSA176","Name": "Quyền chọn chuyển đổi trái phiếu"},{"Code": "BSA82","Name": "Vốn khác của chủ sở hữu"},{"Code": "BSA83","Name": "Cổ phiếu quỹ"},{"Code": "BSA84","Name": "Chênh lệch đánh giá lại tài sản"},{"Code": "BSA85","Name": "Chênh lệch tỷ giá hối đoái"},{"Code": "BSA86","Name": "Quỹ đầu tư phát triển"},{"Code": "BSA87","Name": "Quỹ dự phòng tài chính"},{"Code": "BSA89","Name": "Quỹ khác thuộc vốn chủ sở hữu"},{"Code": "BSA90","Name": "Lợi nhuận sau thuế chưa phân phối"},{"Code": "BSA210","Name": "Lợi ích cổ đông không kiểm soát"},{"Code": "BSA91","Name": "Quỹ hỗ trợ sắp xếp doanh nghiệp"},{"Code": "BSA93","Name": "Nguồn vốn đầu tư XDCB"},{"Code": "BSA92","Name": "Nguồn kinh phí và quỹ khác"},{"Code": "BSA94","Name": "Vốn ngân sách nhà nước"},{"Code": "BSA211","Name": "Nguồn kinh phí đã hình thành TSCĐ"},{"Code": "BSA96","Name": "TỔNG CỘNG NGUỒN VỐN"}]
+    df_api.columns = df_api.columns.str.upper()
+
+    for i in range(len(mapping)):
+        df_api.rename(columns={mapping[i]["Code"]: mapping[i]["Name"]},inplace=True)
+    return df_api[0].to_json()
+
+def getInfoCB(code):
+    api_url = f"https://fwtapi3.fialda.com/api/services/app/Market/GetICBInfos?icbCode={code}"
+    response = requests.get(api_url,headers=headers)
+    # Kiểm tra xem có lỗi không (status code 200 là thành công)
+    if response.status_code == 200:
+        # In nội dung phản hồi
+        response = response.json()["result"]
+    else:
+        # In lỗi nếu có
+        print(f"Lỗi {response.status_code}: {response.text}")
+    response_lenght = len(response)
+    df_api = pd.DataFrame()
+    for i in range(response_lenght):
+        df_api = pd.concat([df_api, pd.DataFrame([response[i]])])
+    return df_api.to_json()
+
+def getInfoCBName():
+    icb_data = pd.read_excel("../stock_data/icb_info.xlsx")
+    return icb_data.to_json()
+
 @app.route("/info_4m", methods=["POST"])
 def cal4M():
     data = request.get_json()
@@ -303,7 +345,7 @@ def calCanslim():
         abort(400)
     return jsonify({"4m": canslim(symbol)})
 
-@app.route("/info_stockname", methods=["GET"])
+@app.route("/info_stockname", methods=["POST"])
 def stockName():
     data = request.get_json()
     print(data)
@@ -311,6 +353,82 @@ def stockName():
     if symbol is None:
         abort(400)
     return jsonify({"StockName": getStockName(symbol)})
+
+@app.route("/info_icb", methods=["GET"])
+def getInfoICB():
+    result = getInfoCBName()
+    try:
+        json_result = jsonify(result)
+        return json_result
+    except (TypeError, ValueError):
+        abort(500)
+
+@app.route("/info_stockprice", methods=["POST"])
+def stockPrice():
+    data = request.get_json()
+    print(data)
+    symbol = data.get("symbol")
+    if symbol is None:
+        abort(400)
+
+    result = getStockPrice(symbol)
+    try:
+        json_result = jsonify(result)
+        return json_result
+    except (TypeError, ValueError):
+        abort(500)
+
+@app.route("/info_kqkd", methods=["POST"])
+def KQKD():
+    data = request.get_json()
+    print(data)
+    symbol = data.get("symbol")
+    isQuarterReport = data.get("isQuarterReport")
+    if symbol is None:
+        abort(400)
+
+    result = getKQKD(symbol, isQuarterReport)
+    try:
+        json_result = jsonify(result)
+        return json_result
+    except (TypeError, ValueError):
+        abort(500)
+
+@app.route("/info_cdkt", methods=["POST"])
+def CDKT():
+    data = request.get_json()
+    print(data)
+    symbol = data.get("symbol")
+    isQuarterReport = data.get("isQuarterReport")
+    if symbol is None:
+        abort(400)
+
+    result = getCDKT(symbol, isQuarterReport)
+    try:
+        json_result = jsonify(result)
+        return json_result
+    except (TypeError, ValueError):
+        abort(500)
+
+@app.route("/info_nganh", methods=["POST"])
+def info_nganh():
+    data = request.get_json()
+    print(data)
+    name = data.get("name")
+    if name is None:
+        abort(400)
+
+    icb_df = pd.read_excel('../stock_data/icb_info.xlsx')
+    code = icb_df[icb_df["icbName"] == name].icbCode.values[0]
+
+    result = getInfoCB(code)
+    try:
+        json_result = jsonify(result)
+        return json_result
+    except (TypeError, ValueError):
+        abort(500)
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
