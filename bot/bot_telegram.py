@@ -9,6 +9,7 @@ from pytz import timezone
 import talib
 import asyncio
 import matplotlib.pyplot as plt
+import json
 
 try:
     from telegram import __version_info__
@@ -26,13 +27,19 @@ from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQuer
 
 # Define key
 TOKEN = "6872218219:AAHUq7K01nySykPhXii4X_V8J1N6faHFcBM"  # main bot
+BASE_URL = "http://127.0.0.1:5000"
 
 
-def get_symbol_data(symbol):
+def get_4M_data(symbol):
     try:
-        url = ""
-        data = requests.post(url, data={"symbol": symbol}).json()
-        return data
+        url = f"{BASE_URL}/info_4m"
+        data = {"symbol": symbol}
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(url, data=json.dumps(data), headers=headers)
+        data = response.json()
+        point_4M = data["4m"]
+
+        return round(point_4M, 2)
     except Exception as e:
         print(e)
         return None
@@ -42,10 +49,13 @@ async def get_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         symbol = context.args[0].upper()
         print(symbol)
-        symbol_data = get_symbol_data(symbol)
-        if symbol_data is None:
+        point_4M = get_4M_data(symbol)
+        if point_4M is None:
             await update.message.reply_text("Không tìm thấy thông tin")
             return
+        else:
+            message = f"Điểm 4M của mã {symbol} là {point_4M}"
+            await update.message.reply_text(message)
     except Exception as e:
         await update.message.reply_text("Đã có lỗi xảy ra, vui lòng thử lại sau")
         print(e)
