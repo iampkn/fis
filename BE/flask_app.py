@@ -15,6 +15,26 @@ YEAR_ONE = 0
 YEAR_THREE = 2
 YEAR_FIVE = 4
 
+# define header for request
+headers = {
+        "authority": "fwtapi2.fialda.com",
+        "method": "GET",
+        "scheme": "https",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "max-age=0",
+        "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Microsoft Edge";v="120"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "None",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+    }
+
 
 @app.route("/")
 def hello():
@@ -50,24 +70,6 @@ def calculate_point_item(chiso, tham_chieu):
 
 
 def calculate4M(_STOCK):
-    headers = {
-        "authority": "fwtapi2.fialda.com",
-        "method": "GET",
-        "scheme": "https",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "max-age=0",
-        "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Microsoft Edge";v="120"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "None",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
-    }
     api_url = f"https://fwtapi2.fialda.com/api/services/app/TechnicalAnalysis/GetFinancialHighlights?symbol={_STOCK}"
 
     response = requests.get(api_url, headers=headers)
@@ -210,6 +212,74 @@ def calculate4M(_STOCK):
         + sum11 * TY_TRONG_ROIC
     )
 
+def canslim(_STOCK):
+    api_url = f"https://fwtapi2.fialda.com/api/services/app/TechnicalAnalysis/GetFinancialHighlights?symbol={_STOCK}"
+
+    response = requests.get(api_url,headers=headers)
+
+    # Kiểm tra xem có lỗi không (status code 200 là thành công)
+    if response.status_code == 200:
+        # In nội dung phản hồi
+        response = response.json()["result"]
+    else:
+        # In lỗi nếu có
+        print(f"Lỗi {response.status_code}: {response.text}")
+    response_lenght = len(response)
+    df_api = pd.DataFrame()
+    for i in range(response_lenght):
+        df_api = pd.concat([df_api, pd.DataFrame([response[i]])])
+
+    df_api = df_api[df_api["quarter"] != 5]
+    df_api = df_api[::-1]
+    
+    df_api = df_api[["year", "quarter", "netSale", "eps"]].iloc[:9]
+
+    THAM_CHIEU_25 = 0.25
+    THAM_CHIEU_20 = 0.2
+    TY_TRONG_15 = 0.15
+    TY_TRONG_20 = 0.2
+    TY_TRONG_10 = 0.1
+    TY_TRONG_5 = 0.05
+    data_sales = df_api["netSale"].values
+
+    tltt_a_sale =  (data_sales[0] - data_sales[4])/data_sales[4]
+    score_a_sale = TY_TRONG_15 if tltt_a_sale > THAM_CHIEU_25 else tltt_a_sale/THAM_CHIEU_25 * TY_TRONG_15
+    score_a_sale = score_a_sale if score_a_sale > 0 else 0
+
+    tltt_b_sale =  (data_sales[1] - data_sales[5])/data_sales[5]
+    score_b_sale = TY_TRONG_10 if tltt_b_sale > THAM_CHIEU_25 else tltt_b_sale/THAM_CHIEU_25 * TY_TRONG_10
+    score_b_sale = score_b_sale if score_b_sale > 0 else 0
+
+    tltt_c_sale = (data_sales[:4].sum() - data_sales[4:4+4].sum()) /data_sales[4:4+4].sum()
+    score_c_sale = TY_TRONG_10 if tltt_c_sale > THAM_CHIEU_20 else tltt_c_sale/THAM_CHIEU_20 * TY_TRONG_10
+    score_c_sale = score_c_sale if score_c_sale > 0 else 0
+
+    tltt_d_sale = (data_sales[1:5].sum() - data_sales[5:5+4].sum()) /data_sales[5:5+4].sum()
+    score_d_sale = TY_TRONG_5 if tltt_d_sale > THAM_CHIEU_20 else tltt_d_sale/THAM_CHIEU_20 * TY_TRONG_5
+    score_d_sale = score_d_sale if score_d_sale > 0 else 0
+
+    data_eps = df_api["eps"].values
+    tltt_a_eps =  (data_eps[0] - data_eps[4])/data_eps[4]
+    score_a_eps = TY_TRONG_20 if tltt_a_eps > THAM_CHIEU_25 else tltt_a_eps/THAM_CHIEU_25 * TY_TRONG_20
+    score_a_eps = score_a_eps if score_a_eps > 0 else 0
+
+    tltt_b_eps =  (data_eps[1] - data_eps[5])/data_eps[5]
+    score_b_eps = TY_TRONG_15 if tltt_b_eps > THAM_CHIEU_25 else tltt_b_eps/THAM_CHIEU_25 * TY_TRONG_15
+    score_b_eps = score_b_eps if score_b_eps > 0 else 0
+
+    tltt_c_eps = (data_eps[:4].sum() - data_eps[4:4+4].sum()) /data_eps[5:5+4].sum()
+    score_c_eps = TY_TRONG_15 if tltt_c_eps > THAM_CHIEU_20 else tltt_c_eps/THAM_CHIEU_20 * TY_TRONG_15
+    score_c_eps = score_c_eps if score_c_eps > 0 else 0
+
+    tltt_d_eps = (data_eps[1:5].sum() - data_eps[5:5+4].sum()) /data_eps[5:5+4].sum()
+    score_d_eps = TY_TRONG_10 if tltt_d_eps > THAM_CHIEU_20 else tltt_d_eps/THAM_CHIEU_20 * TY_TRONG_10
+    score_d_eps = score_d_eps if score_d_eps > 0 else 0
+
+    C =  score_a_eps + score_b_eps + score_a_sale + score_b_sale
+    A = score_c_eps + score_d_eps + score_c_sale + score_d_sale
+    
+    return (C + A) * 100
+
 
 @app.route("/info_4m", methods=["POST"])
 def cal4M():
@@ -219,6 +289,15 @@ def cal4M():
     if symbol is None:
         abort(400)
     return jsonify({"4m": calculate4M(symbol)})
+
+@app.route("/info_canslim", methods=["POST"])
+def calCanslim():
+    data = request.get_json()
+    print(data)
+    symbol = data.get("symbol")
+    if symbol is None:
+        abort(400)
+    return jsonify({"4m": canslim(symbol)})
 
 
 if __name__ == "__main__":
